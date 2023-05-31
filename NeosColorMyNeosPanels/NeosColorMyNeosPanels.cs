@@ -9,10 +9,11 @@ namespace ColorMyNeosPanels
 {
 	public class ColorMyNeosPanels : NeosMod
 	{
-		public override string Name => "ColorMyNeosPanels";
+		public override string Name => "ColorMyPanels";
 		public override string Author => "Nytra";
 		public override string Version => "1.0.0";
-		public override string Link => "https://github.com/Nytra/NeosColorMyNeosPanels";
+		public override string Link => "https://github.com/Nytra/NeosColorMyPanels";
+
 		private static Random rngTimeSeeded = new Random();
 		private static Random rng;
 		public static ModConfiguration Config;
@@ -47,7 +48,7 @@ namespace ColorMyNeosPanels
 
 		public override void OnEngineInit()
 		{
-			Harmony harmony = new Harmony("owo.Nytra.ColorMyNeosPanels");
+			Harmony harmony = new Harmony("owo.Nytra.ColorMyPanels");
 			Config = GetConfiguration();
 			harmony.PatchAll();
 		}
