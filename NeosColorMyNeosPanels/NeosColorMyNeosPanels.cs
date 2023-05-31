@@ -31,9 +31,13 @@ namespace ColorMyNeosPanels
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<bool> WI_USE_WORKER = new ModConfigurationKey<bool>("WI_USE_WORKER", "[Worker Inspector] Color by Worker RefID (Random if false):", () => true);
 		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<bool> SI_USE_FACTOR = new ModConfigurationKey<bool>("SI_USE_FACTOR", "[Scene Inspector] Subscribe to real-time factor changes (Static random if false):", () => false);
+		private static ModConfigurationKey<bool> SI_USE_FACTOR = new ModConfigurationKey<bool>("SI_USE_FACTOR", "[Scene Inspector] Use Factor (Static random if false):", () => false);
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<SI_Factor_Enum> SI_FACTOR = new ModConfigurationKey<SI_Factor_Enum>("SI_FACTOR", "[Scene Inspector] Factor:", () => SI_Factor_Enum.ComponentView);
+		[AutoRegisterConfigKey]
+		private static ModConfigurationKey<bool> SI_USE_RANDOM_COMP_VIEW = new ModConfigurationKey<bool>("SI_USE_RANDOM_COMP_VIEW", "[Scene Inspector] Use time-seeded RNG if factor is ComponentView:", () => false);
+		[AutoRegisterConfigKey]
+		private static ModConfigurationKey<int> RANDOM_SEED = new ModConfigurationKey<int>("RANDOM_SEED", "Random Seed:", () => 0);
 
 		private enum SI_Factor_Enum
 		{
@@ -57,16 +61,37 @@ namespace ColorMyNeosPanels
 		{
 			if (Config.GetValue(SI_FACTOR) == SI_Factor_Enum.ComponentView)
 			{
-				return sceneInspector.ComponentView.RawTarget ?? sceneInspector.Root.RawTarget;
+				return sceneInspector.ComponentView.RawTarget ?? sceneInspector.World.RootSlot;
 			}
 			else
 			{
 				return sceneInspector.Root.RawTarget;
 			}
 		}
+
+		static Random GetRNGForSceneInspector(SceneInspector sceneInspector)
+		{
+			if (Config.GetValue(SI_USE_RANDOM_COMP_VIEW) && Config.GetValue(SI_FACTOR) == SI_Factor_Enum.ComponentView)
+			{
+				return rngTimeSeeded;
+			}
+			else
+			{
+				Slot targetSlot = GetSceneInspectorTarget(sceneInspector);
+				return new Random(targetSlot.ReferenceID.GetHashCode() + Config.GetValue(RANDOM_SEED));
+			}
+		}
+
+		static void ClampColor(ref color c)
+		{
+			c = c.SetR(Math.Min(Math.Max(c.r, 0f), 1f));
+			c = c.SetG(Math.Min(Math.Max(c.g, 0f), 1f));
+			c = c.SetB(Math.Min(Math.Max(c.b, 0f), 1f));
+			c = c.SetA(Math.Min(Math.Max(c.a, 0f), 1f));
+		}
 		
 		[HarmonyPatch(typeof(NeosPanel), "OnAttach")]
-		class ModNameGoesHerePatch
+		class ColorMyNeosPanelsPatch
 		{
 			public static bool Prefix(NeosPanel __instance)
 			{
@@ -76,7 +101,9 @@ namespace ColorMyNeosPanels
 					{
 						if (Config.GetValue(USE_STATIC_COLOR))
 						{
-							__instance.Color = Config.GetValue(STATIC_COLOR);
+							color c = Config.GetValue(STATIC_COLOR);
+							ClampColor(ref c);
+							__instance.Color = c;
 							return;
 						}
 
@@ -88,30 +115,23 @@ namespace ColorMyNeosPanels
 
 						if (sceneInspector != null)
 						{
-							var factor = Config.GetValue(SI_FACTOR);
-							SyncRef<Slot> targetSyncRef = null;
-							
-							if (factor == SI_Factor_Enum.ComponentView)
-							{
-								targetSyncRef = sceneInspector.ComponentView;
-							}
-							else 
-							{
-								targetSyncRef = sceneInspector.Root;
-							}
-
-							Slot targetSlot;
 							if (Config.GetValue(SI_USE_FACTOR))
 							{
-								targetSyncRef.Changed += (iChangeable) =>
+								sceneInspector.ComponentView.Changed += (iChangeable) =>
 								{
-									targetSlot = GetSceneInspectorTarget(sceneInspector);
-									rng = new Random(targetSlot.ReferenceID.GetHashCode());
+									if (Config.GetValue(SI_FACTOR) != SI_Factor_Enum.ComponentView || !Config.GetValue(SI_USE_FACTOR)) return;
+									rng = GetRNGForSceneInspector(sceneInspector);
 									SetPanelColorWithRNG(__instance, rng);
 								};
 
-								targetSlot = GetSceneInspectorTarget(sceneInspector);
-								rng = new Random(targetSlot.ReferenceID.GetHashCode());
+								sceneInspector.Root.Changed += (iChangeable) =>
+								{
+									if (Config.GetValue(SI_FACTOR) != SI_Factor_Enum.Root || !Config.GetValue(SI_USE_FACTOR)) return;
+									rng = GetRNGForSceneInspector(sceneInspector);
+									SetPanelColorWithRNG(__instance, rng);
+								};
+
+								rng = GetRNGForSceneInspector(sceneInspector);
 							}
 						}
 
@@ -120,7 +140,7 @@ namespace ColorMyNeosPanels
 						if (Config.GetValue(WI_USE_WORKER) && workerInspector != null)
 						{
 							var workerRef = workerInspectorField.GetValue(workerInspector) as SyncRef<Worker>;
-							rng = new Random(workerRef.Target.ReferenceID.GetHashCode());
+							rng = new Random(workerRef.Target.ReferenceID.GetHashCode() + Config.GetValue(RANDOM_SEED));
 						}
 
 						// END
