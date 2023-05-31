@@ -29,13 +29,13 @@ namespace ColorMyNeosPanels
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<float> VALUE = new ModConfigurationKey<float>("VALUE", "Value:", () => 1f);
 		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<bool> USE_WORKER_INSPECTOR_WORKER = new ModConfigurationKey<bool>("USE_WORKER_INSPECTOR_WORKER", "[Worker Inspector] Color by Worker RefID (Random if false):", () => true);
+		private static ModConfigurationKey<bool> WI_USE_WORKER = new ModConfigurationKey<bool>("WI_USE_WORKER", "[Worker Inspector] Color by Worker RefID (Random if false):", () => true);
 		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<bool> USE_INSPECTOR_MODE = new ModConfigurationKey<bool>("USE_INSPECTOR_MODE", "[Scene Inspector] Subscribe to Factor (Static random if false):", () => true);
+		private static ModConfigurationKey<bool> SI_USE_FACTOR = new ModConfigurationKey<bool>("SI_USE_FACTOR", "[Scene Inspector] Subscribe to real-time factor changes (Static random if false):", () => false);
 		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<SceneInspectorMode> SCENE_INSPECTOR_MODE = new ModConfigurationKey<SceneInspectorMode>("SCENE_INSPECTOR_MODE", "[Scene Inspector] Factor:", () => SceneInspectorMode.ComponentView);
+		private static ModConfigurationKey<SI_Factor_Enum> SI_FACTOR = new ModConfigurationKey<SI_Factor_Enum>("SI_FACTOR", "[Scene Inspector] Factor:", () => SI_Factor_Enum.ComponentView);
 
-		private enum SceneInspectorMode
+		private enum SI_Factor_Enum
 		{
 			ComponentView,
 			Root
@@ -55,7 +55,7 @@ namespace ColorMyNeosPanels
 
 		static Slot GetSceneInspectorTarget(SceneInspector sceneInspector)
 		{
-			if (Config.GetValue(SCENE_INSPECTOR_MODE) == SceneInspectorMode.ComponentView)
+			if (Config.GetValue(SI_FACTOR) == SI_Factor_Enum.ComponentView)
 			{
 				return sceneInspector.ComponentView.RawTarget ?? sceneInspector.Root.RawTarget;
 			}
@@ -88,10 +88,10 @@ namespace ColorMyNeosPanels
 
 						if (sceneInspector != null)
 						{
-							var sceneInspectorMode = Config.GetValue(SCENE_INSPECTOR_MODE);
+							var factor = Config.GetValue(SI_FACTOR);
 							SyncRef<Slot> targetSyncRef = null;
 							
-							if (sceneInspectorMode == SceneInspectorMode.ComponentView)
+							if (factor == SI_Factor_Enum.ComponentView)
 							{
 								targetSyncRef = sceneInspector.ComponentView;
 							}
@@ -101,7 +101,7 @@ namespace ColorMyNeosPanels
 							}
 
 							Slot targetSlot;
-							if (Config.GetValue(USE_INSPECTOR_MODE))
+							if (Config.GetValue(SI_USE_FACTOR))
 							{
 								targetSyncRef.Changed += (iChangeable) =>
 								{
@@ -109,6 +109,7 @@ namespace ColorMyNeosPanels
 									rng = new Random(targetSlot.ReferenceID.GetHashCode());
 									SetPanelColorWithRNG(__instance, rng);
 								};
+
 								targetSlot = GetSceneInspectorTarget(sceneInspector);
 								rng = new Random(targetSlot.ReferenceID.GetHashCode());
 							}
@@ -116,7 +117,7 @@ namespace ColorMyNeosPanels
 
 						// WORKER INSPECTOR
 
-						if (Config.GetValue(USE_WORKER_INSPECTOR_WORKER) && workerInspector != null)
+						if (Config.GetValue(WI_USE_WORKER) && workerInspector != null)
 						{
 							var workerRef = workerInspectorField.GetValue(workerInspector) as SyncRef<Worker>;
 							rng = new Random(workerRef.Target.ReferenceID.GetHashCode());
