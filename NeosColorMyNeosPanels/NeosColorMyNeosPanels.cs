@@ -3,7 +3,6 @@ using NeosModLoader;
 using FrooxEngine;
 using BaseX;
 using System;
-using System.Reflection;
 
 namespace ColorMyNeosPanels
 {
@@ -15,72 +14,31 @@ namespace ColorMyNeosPanels
 		public override string Link => "https://github.com/Nytra/NeosColorMyPanels";
 
 		private static Random rngTimeSeeded = new Random();
-		private static Random rng;
 		public static ModConfiguration Config;
-		private static FieldInfo workerInspectorField = typeof(WorkerInspector).GetField("_targetWorker", BindingFlags.NonPublic | BindingFlags.Instance);
+		private const string SEP_STRING = "<size=0></size>";
 
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<bool> MOD_ENABLED = new ModConfigurationKey<bool>("MOD_ENABLED", "Mod Enabled:", () => true);
+		
 		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<bool> USE_STATIC_COLOR = new ModConfigurationKey<bool>("USE_STATIC_COLOR", "Use Static Color (Overrides everything else):", () => false);
+		private static ModConfigurationKey<dummy> DUMMY_SEP_1 = new ModConfigurationKey<dummy>("DUMMY_SEP_1", SEP_STRING, () => new dummy());
+		[AutoRegisterConfigKey]
+		private static ModConfigurationKey<bool> USE_STATIC_COLOR = new ModConfigurationKey<bool>("USE_STATIC_COLOR", "Use Static Color (Random if false):", () => false);
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<color> STATIC_COLOR = new ModConfigurationKey<color>("STATIC_COLOR", "Static Color:", () => new color(1f, 1f, 1f, 0.5f));
+
+		[AutoRegisterConfigKey]
+		private static ModConfigurationKey<dummy> DUMMY_SEP_2 = new ModConfigurationKey<dummy>("DUMMY_SEP_2", SEP_STRING, () => new dummy());
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<float> SATURATION = new ModConfigurationKey<float>("SATURATION", "Saturation:", () => 1f);
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<float> VALUE = new ModConfigurationKey<float>("VALUE", "Value:", () => 1f);
-		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<bool> WI_USE_WORKER = new ModConfigurationKey<bool>("WI_USE_WORKER", "[Worker Inspector] Color by Worker RefID (Random if false):", () => true);
-		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<bool> SI_USE_FACTOR = new ModConfigurationKey<bool>("SI_USE_FACTOR", "[Scene Inspector] Use Factor (Static random if false):", () => false);
-		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<SI_Factor_Enum> SI_FACTOR = new ModConfigurationKey<SI_Factor_Enum>("SI_FACTOR", "[Scene Inspector] Factor:", () => SI_Factor_Enum.ComponentView);
-		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<bool> SI_USE_RANDOM_COMP_VIEW = new ModConfigurationKey<bool>("SI_USE_RANDOM_COMP_VIEW", "[Scene Inspector] Use time-seeded RNG if factor is ComponentView:", () => false);
-		[AutoRegisterConfigKey]
-		private static ModConfigurationKey<int> RANDOM_SEED = new ModConfigurationKey<int>("RANDOM_SEED", "Random Seed:", () => 0);
-
-		private enum SI_Factor_Enum
-		{
-			ComponentView,
-			Root
-		}
 
 		public override void OnEngineInit()
 		{
 			Harmony harmony = new Harmony("owo.Nytra.ColorMyPanels");
 			Config = GetConfiguration();
 			harmony.PatchAll();
-		}
-
-		static void SetPanelColorWithRNG(NeosPanel panel, Random rand)
-		{
-			panel.Color = new ColorHSV((float)rand.NextDouble(), Config.GetValue(SATURATION), Config.GetValue(VALUE), 1f).ToRGB();
-		}
-
-		static Slot GetSceneInspectorTarget(SceneInspector sceneInspector)
-		{
-			if (Config.GetValue(SI_FACTOR) == SI_Factor_Enum.ComponentView)
-			{
-				return sceneInspector.ComponentView.RawTarget ?? sceneInspector.World.RootSlot;
-			}
-			else
-			{
-				return sceneInspector.Root.RawTarget;
-			}
-		}
-
-		static Random GetRNGForSceneInspector(SceneInspector sceneInspector)
-		{
-			if (Config.GetValue(SI_USE_RANDOM_COMP_VIEW) && Config.GetValue(SI_FACTOR) == SI_Factor_Enum.ComponentView)
-			{
-				return rngTimeSeeded;
-			}
-			else
-			{
-				Slot targetSlot = GetSceneInspectorTarget(sceneInspector);
-				return new Random(targetSlot.ReferenceID.GetHashCode() + Config.GetValue(RANDOM_SEED));
-			}
 		}
 
 		static void ClampColor(ref color c)
@@ -100,55 +58,20 @@ namespace ColorMyNeosPanels
 				{
 					__instance.RunSynchronously(() =>
 					{
+						color c;
 						if (Config.GetValue(USE_STATIC_COLOR))
 						{
-							color c = Config.GetValue(STATIC_COLOR);
-							ClampColor(ref c);
-							__instance.Color = c;
-							return;
+							c = Config.GetValue(STATIC_COLOR);
 						}
-
-						var sceneInspector = __instance.Slot.GetComponent<SceneInspector>();
-						var workerInspector = __instance.Slot.GetComponentInChildren<WorkerInspector>();
-						rng = rngTimeSeeded;
-
-						// SCENE INSPECTOR
-
-						if (sceneInspector != null)
+						else
 						{
-							if (Config.GetValue(SI_USE_FACTOR))
-							{
-								sceneInspector.ComponentView.Changed += (iChangeable) =>
-								{
-									if (Config.GetValue(SI_FACTOR) != SI_Factor_Enum.ComponentView || !Config.GetValue(SI_USE_FACTOR)) return;
-									rng = GetRNGForSceneInspector(sceneInspector);
-									SetPanelColorWithRNG(__instance, rng);
-								};
-
-								sceneInspector.Root.Changed += (iChangeable) =>
-								{
-									if (Config.GetValue(SI_FACTOR) != SI_Factor_Enum.Root || !Config.GetValue(SI_USE_FACTOR)) return;
-									rng = GetRNGForSceneInspector(sceneInspector);
-									SetPanelColorWithRNG(__instance, rng);
-								};
-
-								rng = GetRNGForSceneInspector(sceneInspector);
-							}
+							c = new ColorHSV((float)rngTimeSeeded.NextDouble(), Config.GetValue(SATURATION), Config.GetValue(VALUE), 1f).ToRGB();
 						}
-
-						// WORKER INSPECTOR
-
-						if (Config.GetValue(WI_USE_WORKER) && workerInspector != null)
-						{
-							var workerRef = workerInspectorField.GetValue(workerInspector) as SyncRef<Worker>;
-							rng = new Random(workerRef.Target.ReferenceID.GetHashCode() + Config.GetValue(RANDOM_SEED));
-						}
-
-						// END
-
-						SetPanelColorWithRNG(__instance, rng);
+						ClampColor(ref c);
+						__instance.Color = c;
 					});
 				}
+
 				return true;
 			}
 		}
