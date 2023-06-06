@@ -27,7 +27,7 @@ namespace ColorMyNeosPanels
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<color> STATIC_COLOR = new ModConfigurationKey<color>("STATIC_COLOR", "Static Color:", () => new color(1f, 1f, 1f, 0.5f));
 
-        [AutoRegisterConfigKey]
+		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<dummy> DUMMY_SEP_2 = new ModConfigurationKey<dummy>("DUMMY_SEP_2", SEP_STRING, () => new dummy());
 		[AutoRegisterConfigKey]
 		private static ModConfigurationKey<float> SATURATION = new ModConfigurationKey<float>("SATURATION", "Saturation:", () => 0.5f);
