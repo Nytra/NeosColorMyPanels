@@ -1,6 +1,6 @@
 # ColorMyPanels
 
-A [NeosModLoader](https://github.com/zkxs/NeosModLoader) mod for [Neos VR](https://neos.com/) that sets colors on your Neos Panels (Inspectors, LogiX Browser, Avatar Creator, Full Body Calibrator, etc.) either randomly or by using a configured color via Neos Mod Settings.
+A [NeosModLoader](https://github.com/zkxs/NeosModLoader) mod for [Neos VR](https://neos.com/) that colors your Neos Panels (Inspector, LogiX Browser, Avatar Creator, etc...) either randomly or by using a static color configured via Neos Mod Settings.
 
 ## Installation
 1. Install [NeosModLoader](https://github.com/zkxs/NeosModLoader).
